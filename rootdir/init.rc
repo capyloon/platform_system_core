@@ -10,7 +10,6 @@ import /system/etc/init/hw/init.usb.rc
 import /init.${ro.hardware}.rc
 import /vendor/etc/init/hw/init.${ro.hardware}.rc
 import /system/etc/init/hw/init.usb.configfs.rc
-import /system/etc/init/hw/init.${ro.zygote}.rc
 
 # Cgroups are mounted right before early-init using list from /etc/cgroups.json
 on early-init
@@ -539,6 +538,8 @@ on late-init
     trigger load_bpf_programs
 
     # Now we can start zygote for devices with file based encryption
+    # Note: For Gonk devices zygote is not used but we keep the same trigger
+    #       name to facilitate porting.
     trigger zygote-start
 
     # Remove a file to wake up anything waiting for firmware.
@@ -546,6 +547,12 @@ on late-init
 
     trigger early-boot
     trigger boot
+
+    trigger post-boot
+
+on post-boot
+    # This is triggered by zygote -> ActivityManagerService.java on Android.
+    exec - system system -- /system/bin/vdc checkpoint commitChanges
 
 on early-fs
     # Once metadata has been mounted, we'll need vold to deal with userdata checkpointing
@@ -1031,8 +1038,6 @@ on zygote-start && property:ro.crypto.state=unencrypted
     exec_start update_verifier_nonencrypted
     start statsd
     start netd
-    start zygote
-    start zygote_secondary
 
 on zygote-start && property:ro.crypto.state=unsupported
     wait_for_prop odsign.verification.done 1
@@ -1040,8 +1045,6 @@ on zygote-start && property:ro.crypto.state=unsupported
     exec_start update_verifier_nonencrypted
     start statsd
     start netd
-    start zygote
-    start zygote_secondary
 
 on zygote-start && property:ro.crypto.state=encrypted && property:ro.crypto.type=file
     wait_for_prop odsign.verification.done 1
@@ -1049,8 +1052,6 @@ on zygote-start && property:ro.crypto.state=encrypted && property:ro.crypto.type
     exec_start update_verifier_nonencrypted
     start statsd
     start netd
-    start zygote
-    start zygote_secondary
 
 on boot && property:ro.config.low_ram=true
     # Tweak background writeout
